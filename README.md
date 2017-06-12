@@ -74,3 +74,11 @@ configuring with autoconf.
 ```
 CFLAGS="-g" ./configure --with-tcl=/usr/local/lib/tcl8.6
 ```
+
+Future Work
+--------
+One goal will be to incorporate the Unicorn engine, http://www.unicorn-engine.org.  With Unicorn's virtual machine we can run diagnostic Tcl without affecting the Tcl interpreter.
+For example, if you call ```print Tcl_GetString(argv[2])``` then one may cause a Tcl alloc or string creation in the representation.
+Using the Unicorn interpreter, we can call Tcl interpreter code without changing the debug target.
+
+
