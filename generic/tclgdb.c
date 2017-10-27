@@ -9,11 +9,13 @@
 
 #include <tcl.h>
 #include <string.h>
+#include <unistd.h>
 
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLEXPORT
 
-static char buffer[16*1024];
+static char buffer[2*1024];
+static char cmdbuffer[512];
 
 static char * get_tcl_source_file(void *);
 
@@ -35,8 +37,11 @@ void tclgdb_cmdstep(ClientData clientData,
 {
 	/* Some code so that gcc does not optimize out this function. */
 	char *s = get_tcl_source_file(interp);
-	s = (s == NULL ? "unknown file" : s);
-	strncpy(buffer, s, sizeof(buffer)-1);
+	s = (s == NULL ? "unknown" : s);
+	strncpy(cmdbuffer, command, sizeof(cmdbuffer) - 1);
+	snprintf(buffer, sizeof(buffer) - 1, "%d: %s file=\"%s\"", level, cmdbuffer, s);
+	/* write to a bad FD, but we can see it in truss or strace */
+	write(-1, buffer, strlen(buffer));
 }
 
 typedef struct tclgdb_objectClientData {
@@ -113,6 +118,9 @@ Tclgdb_Init(Tcl_Interp *interp)
 
 	Tcl_Export (interp, namespace, "*", 0);
 
+	memset(cmdbuffer, 0, sizeof(cmdbuffer));
+	memset(buffer, 0, sizeof(buffer));
+
 	return TCL_OK;
 }
 
@@ -146,14 +154,14 @@ Tclgdb_SafeInit(Tcl_Interp *interp)
  * Now we are going to use the internals of the Tcl interpreter to inspect the source path.
  */
 
-#include "generic/tclInt.h"
+#include "tclInt.h"
 
 static char * get_tcl_source_file(void *interp) {
     Interp * i = (Interp *)interp;
     CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
     Tcl_Obj *path = cmdFramePtr->data.eval.path;
     if (cmdFramePtr->line != NULL && path != NULL && path->typePtr != NULL && strcmp(path->typePtr->name, "path") == 0) {
-	return path->bytes;
+		return path->bytes;
     }
     return NULL;
 }
@@ -161,7 +169,7 @@ static char * get_tcl_source_file(void *interp) {
 #else /* HAVE_TCLINT_H */
 
 static char * get_tcl_source_file(void *interp) {
-    return "Access to Tcl internals not configured";
+    return "no-internals";
 }
 
 #endif /* HAVE_TCLINT_H */
