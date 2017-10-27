@@ -4,6 +4,13 @@ tclgdb - helpers for using gdb and tcl together for debugging
 tclgdb is a Tcl cmdtrace handler in C.  This allows one to set a breakpoint on
 tclgdb_cmdstep and step the Tcl interpreter while in gdb.
 
+Installing
+----------
+Here is the one line shell.  Run each command by hand as needed.
+```
+mkdir -p config && autoreconf -vi && ./configure && make && sudo make install
+```
+
 Usage
 -----
 ```
