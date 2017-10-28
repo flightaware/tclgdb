@@ -11,13 +11,18 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "tclDecls.h"
+#include "tclgdbIntDecls.h"
+
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLEXPORT
 
 static char buffer[2*1024];
 static char cmdbuffer[512];
 
-static char * get_tcl_source_file(void *);
+static char * get_tcl_source_file(Tcl_Interp *);
+
+static int (*tcl_get_frame) (Tcl_Interp *interp, const char *str, TclGdbCallFrame **framePtrPtr) = NULL;
 
 /*
  * Callback in C for Tcl's cmdtrace.
@@ -121,6 +126,12 @@ Tclgdb_Init(Tcl_Interp *interp)
 	memset(cmdbuffer, 0, sizeof(cmdbuffer));
 	memset(buffer, 0, sizeof(buffer));
 
+	if (tclStubsPtr && tclStubsPtr->hooks) {
+		const struct GdbTclIntStubs *p =
+			(const struct GdbTclIntStubs *)tclStubsPtr->hooks->tclIntStubs;
+		tcl_get_frame = p->tclGetFrame;
+	}
+
 	return TCL_OK;
 }
 
@@ -156,19 +167,27 @@ Tclgdb_SafeInit(Tcl_Interp *interp)
 
 #include "tclInt.h"
 
-static char * get_tcl_source_file(void *interp) {
-    Interp * i = (Interp *)interp;
-    CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
-    Tcl_Obj *path = cmdFramePtr->data.eval.path;
-    if (cmdFramePtr->line != NULL && path != NULL && path->typePtr != NULL && strcmp(path->typePtr->name, "path") == 0) {
-		return path->bytes;
-    }
+static char * get_tcl_source_file(Tcl_Interp *interp) {
+	TclGdbCallFrame *framePtr = NULL;
+    if (tcl_get_frame(interp, "0", &framePtr) == 1) {
+		Interp * i = (Interp *)interp;
+		CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
+		/* Check that the CallFrame matches to avoid byte code calls */
+		if (framePtr == cmdFramePtr->framePtr && cmdFramePtr->type == 0) {
+			Tcl_Obj *path = cmdFramePtr->data.eval.path;
+			if (cmdFramePtr->line != NULL
+				&& path != NULL && path->typePtr != NULL 
+				&& strcmp(path->typePtr->name, "path") == 0) {
+				return path->bytes;
+			}
+		}
+	}
     return NULL;
 }
 
 #else /* HAVE_TCLINT_H */
 
-static char * get_tcl_source_file(void *interp) {
+static char * get_tcl_source_file(Tcl_Interp *interp) {
     return "no-internals";
 }
 
