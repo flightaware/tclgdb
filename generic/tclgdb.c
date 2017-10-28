@@ -167,6 +167,8 @@ Tclgdb_SafeInit(Tcl_Interp *interp)
 
 #include "tclInt.h"
 
+static char path_buffer[2048];
+
 static char * get_tcl_source_file(Tcl_Interp *interp) {
 	TclGdbCallFrame *framePtr = NULL;
     if (tcl_get_frame(interp, "0", &framePtr) == 1) {
@@ -174,12 +176,16 @@ static char * get_tcl_source_file(Tcl_Interp *interp) {
 		CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
 		/* Check that the CallFrame matches to avoid byte code calls */
 		if ((void *)framePtr == (void *)(cmdFramePtr->framePtr)
-			&& cmdFramePtr->type == 0) {
+			&& cmdFramePtr->type == 4) {
+			/* 4 is TCL_LOCATION_SOURCE */
 			Tcl_Obj *path = cmdFramePtr->data.eval.path;
 			if (cmdFramePtr->line != NULL
 				&& path != NULL && path->typePtr != NULL 
 				&& strcmp(path->typePtr->name, "path") == 0) {
-				return path->bytes;
+				int lineNo = cmdFramePtr->nline > 0 && cmdFramePtr->line != NULL ? cmdFramePtr->line[0] : 0;
+				path_buffer[sizeof(path_buffer) - 1] = 0;
+				snprintf(path_buffer, sizeof(path_buffer) - 1, "%d:%s", lineNo, path->bytes);
+				return path_buffer;
 			}
 		}
 	}
