@@ -19,6 +19,8 @@
 
 static char buffer[2*1024];
 static char cmdbuffer[512];
+static char path_buffer[2048];
+static char const_unknown[8];
 
 static char * get_tcl_source_file(Tcl_Interp *);
 
@@ -31,20 +33,20 @@ static int (*tcl_get_frame) (Tcl_Interp *interp, const char *str, TclGdbCallFram
  * answer yes to deferred breakpoint.
  */
 void tclgdb_cmdstep(ClientData clientData,
-		  Tcl_Interp *interp,     /* Current interpreter. */
-		  int level,              /* Current trace level. */
-		  char *command,          /* The command being traced (after
-				           * substitutions). */
-		  Tcl_CmdProc *cmdProc,   /* Points to command's command procedure. */
-		  ClientData cmdClientData,  /* Client data associated with command procedure. */
-		  int argc,               /* Number of arguments. */
-		  const char *argv[])     /* Argument strings. */
+		Tcl_Interp *interp,     /* Current interpreter. */
+		int level,              /* Current trace level. */
+		char *command,          /* The command being traced (after
+								 * substitutions). */
+		Tcl_CmdProc *cmdProc,   /* Points to command's command procedure. */
+		ClientData cmdClientData,  /* Client data associated with command procedure. */
+		int argc,               /* Number of arguments. */
+		const char *argv[])     /* Argument strings. */
 {
 	/* Some code so that gcc does not optimize out this function. */
 	char *s = get_tcl_source_file(interp);
 	s = (s == NULL ? "unknown" : s);
 	strncpy(cmdbuffer, command, sizeof(cmdbuffer) - 1);
-	snprintf(buffer, sizeof(buffer) - 1, "%d: %s file=\"%s\"", level, cmdbuffer, s);
+	snprintf(buffer, sizeof(buffer) - 1, "%d: %s @@ %s", level, cmdbuffer, s);
 	/* write to a bad FD, but we can see it in truss or strace */
 	write(-1, buffer, strlen(buffer));
 }
@@ -119,12 +121,13 @@ Tclgdb_Init(Tcl_Interp *interp)
 
 	/* Create the create command  */
 	Tcl_CreateObjCommand(interp, "::tclgdb::tclgdb", (Tcl_ObjCmdProc *) tclgdbObjCmd, 
-						 (ClientData)data, (Tcl_CmdDeleteProc *)tclgdb_CmdDeleteProc);
+			(ClientData)data, (Tcl_CmdDeleteProc *)tclgdb_CmdDeleteProc);
 
 	Tcl_Export (interp, namespace, "*", 0);
 
 	memset(cmdbuffer, 0, sizeof(cmdbuffer));
 	memset(buffer, 0, sizeof(buffer));
+	strcpy(const_unknown, "unknown");
 
 	if (tclStubsPtr && tclStubsPtr->hooks) {
 		const struct GdbTclIntStubs *p =
@@ -149,7 +152,7 @@ Tclgdb_Init(Tcl_Interp *interp)
  *----------------------------------------------------------------------
  */
 
-EXTERN int
+	EXTERN int
 Tclgdb_SafeInit(Tcl_Interp *interp)
 {
 	/*
@@ -167,35 +170,46 @@ Tclgdb_SafeInit(Tcl_Interp *interp)
 
 #include "tclInt.h"
 
-static char path_buffer[2048];
-
 static char * get_tcl_source_file(Tcl_Interp *interp) {
 	TclGdbCallFrame *framePtr = NULL;
-    if (tcl_get_frame(interp, "0", &framePtr) == 1) {
-		Interp * i = (Interp *)interp;
-		CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
-		/* Check that the CallFrame matches to avoid byte code calls */
-		if ((void *)framePtr == (void *)(cmdFramePtr->framePtr)
-			&& cmdFramePtr->type == 4) {
-			/* 4 is TCL_LOCATION_SOURCE */
-			Tcl_Obj *path = cmdFramePtr->data.eval.path;
-			if (cmdFramePtr->line != NULL
+	if (tcl_get_frame(interp, "0", &framePtr) != 1) {
+		return NULL;
+	}
+	Interp * i = (Interp *)interp;
+	CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
+	/* Check that the CallFrame matches to avoid byte code calls */
+	if (framePtr == NULL || (void *)framePtr != (void *)(cmdFramePtr->framePtr)) {
+		return NULL;
+	}
+	const char *proc = const_unknown;
+	const char *file_path = const_unknown;
+	int lineNo = cmdFramePtr->nline > 0 && cmdFramePtr->line != NULL ? cmdFramePtr->line[0] : 0;
+	if (cmdFramePtr->type == 2) {
+		/* 2 is TCL_LOCATION_TEBC */
+		if (cmdFramePtr->framePtr && cmdFramePtr->framePtr->procPtr
+			&& cmdFramePtr->framePtr->procPtr->cmdPtr
+			&& cmdFramePtr->framePtr->procPtr->cmdPtr->hPtr) {
+			proc = (const char *)&(cmdFramePtr->framePtr->procPtr->cmdPtr->hPtr->key.words);
+		}
+	} else if (cmdFramePtr->type == 4) {
+		/* 4 is TCL_LOCATION_SOURCE */
+		Tcl_Obj *path = cmdFramePtr->data.eval.path;
+		if (cmdFramePtr->line != NULL
 				&& path != NULL && path->typePtr != NULL 
 				&& strcmp(path->typePtr->name, "path") == 0) {
-				int lineNo = cmdFramePtr->nline > 0 && cmdFramePtr->line != NULL ? cmdFramePtr->line[0] : 0;
-				path_buffer[sizeof(path_buffer) - 1] = 0;
-				snprintf(path_buffer, sizeof(path_buffer) - 1, "%d:%s", lineNo, path->bytes);
-				return path_buffer;
-			}
+			file_path = (const char *)(path->bytes);
 		}
 	}
-    return NULL;
+
+	path_buffer[sizeof(path_buffer) - 1] = 0;
+	snprintf(path_buffer, sizeof(path_buffer) - 1, "proc=%s,pLn=%d,path=%s", proc, lineNo, file_path);
+	return path_buffer;
 }
 
 #else /* HAVE_TCLINT_H */
 
 static char * get_tcl_source_file(Tcl_Interp *interp) {
-    return "no-internals";
+	return "no-internals";
 }
 
 #endif /* HAVE_TCLINT_H */
