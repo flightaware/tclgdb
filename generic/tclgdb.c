@@ -173,7 +173,8 @@ static char * get_tcl_source_file(Tcl_Interp *interp) {
 		Interp * i = (Interp *)interp;
 		CmdFrame * cmdFramePtr = (CmdFrame *)i->cmdFramePtr;
 		/* Check that the CallFrame matches to avoid byte code calls */
-		if (framePtr == cmdFramePtr->framePtr && cmdFramePtr->type == 0) {
+		if ((void *)framePtr == (void *)(cmdFramePtr->framePtr)
+			&& cmdFramePtr->type == 0) {
 			Tcl_Obj *path = cmdFramePtr->data.eval.path;
 			if (cmdFramePtr->line != NULL
 				&& path != NULL && path->typePtr != NULL 
