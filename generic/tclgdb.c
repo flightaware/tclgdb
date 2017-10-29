@@ -19,7 +19,9 @@
 
 static char buffer[2*1024];
 static char cmdbuffer[512];
+#ifdef HAVE_TCLINT_H
 static char path_buffer[2048];
+#endif
 static char const_unknown[8];
 
 static char * get_tcl_source_file(Tcl_Interp *);
