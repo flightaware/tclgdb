@@ -55,6 +55,8 @@ void tclgdb_cmdstep(ClientData clientData,
 
 typedef struct tclgdb_objectClientData {
 	int object_magic;
+	int has_trace;
+	Tcl_Trace trace;
 } tclgdb_objectClientData;
 
 #define GDBTOOLS_OBJECT_MAGIC 74352357
@@ -68,7 +70,25 @@ static void tclgdb_CmdDeleteProc(ClientData clientData)
 
 static int tclgdbObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[])
 {
-	Tcl_CreateTrace(interp, 50000, tclgdb_cmdstep, &buffer);
+	if (clientData != NULL
+	    && objc == 2
+            && strcmp("off", Tcl_GetString(objvp[1])) == 0) {
+		tclgdb_objectClientData *cd = (tclgdb_objectClientData *)clientData;
+		if (cd->has_trace) {
+			Tcl_DeleteTrace(interp, cd->trace);
+			cd->has_trace = 0;
+		}
+	}
+
+	if (clientData != NULL
+	    && (objc == 1 || (objc == 2
+		&& strcmp("on", Tcl_GetString(objvp[1])) == 0))) {
+		tclgdb_objectClientData *cd = (tclgdb_objectClientData *)clientData;
+		if (!cd->has_trace) {
+			cd->trace = Tcl_CreateTrace(interp, 50000, tclgdb_cmdstep, &buffer);
+			cd->has_trace = 1;
+		}
+	}
 
 	return TCL_OK;
 }
@@ -96,15 +116,12 @@ static int tclgdbObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl
 Tclgdb_Init(Tcl_Interp *interp)
 {
 	Tcl_Namespace *namespace;
-	/*
-	 * This may work with 8.0, but we are using strictly stubs here,
-	 * which requires 8.1.
-	 */
-	if (Tcl_InitStubs(interp, "8.1", 0) == NULL) {
+
+	if (Tcl_InitStubs(interp, "8.6", 0) == NULL) {
 		return TCL_ERROR;
 	}
 
-	if (Tcl_PkgRequire(interp, "Tcl", "8.1", 0) == NULL) {
+	if (Tcl_PkgRequire(interp, "Tcl", "8.6", 0) == NULL) {
 		return TCL_ERROR;
 	}
 
@@ -120,6 +137,7 @@ Tclgdb_Init(Tcl_Interp *interp)
 	}
 
 	data->object_magic = GDBTOOLS_OBJECT_MAGIC;
+	data->has_trace = 0;
 
 	/* Create the create command  */
 	Tcl_CreateObjCommand(interp, "::tclgdb::tclgdb", (Tcl_ObjCmdProc *) tclgdbObjCmd, 
@@ -131,6 +149,7 @@ Tclgdb_Init(Tcl_Interp *interp)
 	memset(buffer, 0, sizeof(buffer));
 	strcpy(const_unknown, "unknown");
 
+	/* Extract the unpublished TclGetFrame method from the internal stubs. */
 	if (tclStubsPtr && tclStubsPtr->hooks) {
 		const struct GdbTclIntStubs *p =
 			(const struct GdbTclIntStubs *)tclStubsPtr->hooks->tclIntStubs;
