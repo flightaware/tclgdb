@@ -48,7 +48,7 @@ void tclgdb_cmdstep(ClientData clientData,
 	char *s = get_tcl_source_file(interp);
 	s = (s == NULL ? "unknown" : s);
 	strncpy(cmdbuffer, command, sizeof(cmdbuffer) - 1);
-	snprintf(buffer, sizeof(buffer) - 1, "%d: %s @@ %s", level, cmdbuffer, s);
+	snprintf(buffer, sizeof(buffer) - 1, "%d:@@ %s @@ %s", level, s, cmdbuffer);
 	/* write to a bad FD, but we can see it in truss or strace */
 	write(-1, buffer, strlen(buffer));
 }
