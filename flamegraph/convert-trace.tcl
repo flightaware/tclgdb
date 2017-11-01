@@ -36,8 +36,11 @@ proc readfile {filename} {
 	set fp [open $filename "r"]
 	while {![eof $fp]} {
 		set s [gets $fp]
-		if {[string first "write(-1," $line] != -1} { 
-			lappend l [parseline $s]
+		if {[string first "write(-1," $s] != -1} { 
+			set v [parseline $s]
+			if {[llength $v] > 0} {
+				lappend l $v
+			}
 		}
 	}
 	close $fp
@@ -59,8 +62,7 @@ proc makepath {path l lastlevel} {
 	}
 	if {[llength $path] == 0 || $lastlevel <= 0} {
 		# start empty path
-		puts "root 100000000"
-		return [list "root" $name]
+		return [list $name]
 	}
 	set level [lindex $l 1]
 	if {$lastlevel < $level} {
@@ -72,7 +74,6 @@ proc makepath {path l lastlevel} {
 		set n [- [llength $path] [+ 1 [- $lastlevel $level]]]
 		set np [lrange $path 0 $n]
 		if {[llength $np] == 1} {
-			puts "root 100000000"
 		}
 		return $np
 	}
