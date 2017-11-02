@@ -17,7 +17,7 @@ to JSON with burn, https://github.com/spiermar/burn.git
 
 ```
 convert-trace.tcl <raw-trace-file> >folded-trace
-~/git/burn/burn convert --type=folded foo >data.json
+~/git/burn/burn convert --type=folded folded-trace >data.json
 python -m SimpleHTTPServer 8078
 open http://localhost:8078
 ```
