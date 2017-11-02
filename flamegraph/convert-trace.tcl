@@ -2,20 +2,19 @@
 #
 namespace import ::tcl::mathop::*
 
+package require Tclx
+
+#cmdtrace on
+
 proc getprocname {line} {
 	set procindex [string first "@@ proc=" $line]
 	if {$procindex > 0} {
 		set procindex [+ $procindex 8]
-		set commaindex [string first "," $line $procindex]
-		if {$commaindex == -1} {
-			set commaindex [+ $procindex 32]
-			set commaindex [- $commandindex 1]
-			set procname [string range $line $procindex $commaindex]
+		set c [string first "," $line $procindex]
+		if {$c != -1} {
+			set c [- $c 1]
+			set procname [string range $line $procindex $c]
 			return $procname
-		}
-		set w [split $line " "]
-		if {[llength $w] >= 3} {
-			return [lindex $w 2]
 		}
 	}
 	return "unknown"
@@ -25,7 +24,13 @@ proc parseline {line} {
 	set w [split $line " "]
 	set clock [lindex $w 0]
 	set level [lindex $w 1]
-	set level [string range $level 10 11]
+	if {$level == "write(-1,"} {
+	    set level [lindex $w 2]
+	    set level [string range $level 1 2]
+	} else {
+	    set level [string range $level 10 11]
+        }
+	set level [string trim $level ":"]
 	set procname [getprocname $line]
 	set r [list $clock $level $procname]
 	return $r
