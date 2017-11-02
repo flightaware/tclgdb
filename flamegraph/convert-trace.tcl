@@ -55,16 +55,25 @@ set gennum 0
 set entryname "no-entry-name"
 
 proc makepath {path l lastlevel} {
-	set name [lindex $l 2]
+	set name [string trim [lindex $l 2]]
+	if {[string length $name] == 0} {
+		set name "{noname}"
+	}
 	if {$name == "$::entryname"} {
 		append name $::gennum
 		incr ::gennum
 	}
-	if {[llength $path] == 0 || $lastlevel <= 0} {
-		# start empty path
-		return [list $name]
-	}
 	set level [lindex $l 1]
+	if {[llength $path] == 0 || $lastlevel <= 0} {
+		set p {}
+		while {$level >= 0} {
+			lappend p "{lvl}"
+			incr level -1
+		}
+		# start empty path
+		lappend p $name
+		return $p
+	}
 	if {$lastlevel < $level} {
 		# new frame push on to list
 		return [lappend path $name]
