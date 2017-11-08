@@ -10,6 +10,7 @@
 #include <tcl.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "tclDecls.h"
 #include "tclgdbIntDecls.h"
@@ -45,12 +46,14 @@ void tclgdb_cmdstep(ClientData clientData,
 		const char *argv[])     /* Argument strings. */
 {
 	/* Some code so that gcc does not optimize out this function. */
+	int save_errno = errno;
 	char *s = get_tcl_source_file(interp);
 	s = (s == NULL ? "unknown" : s);
 	strncpy(cmdbuffer, command, sizeof(cmdbuffer) - 1);
 	snprintf(buffer, sizeof(buffer) - 1, "%d: @@ %s @@ %s", level, s, cmdbuffer);
 	/* write to a bad FD, but we can see it in truss or strace */
 	write(-1, buffer, strlen(buffer));
+	errno = save_errno;
 }
 
 typedef struct tclgdb_objectClientData {
