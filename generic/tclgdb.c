@@ -29,6 +29,28 @@ static char * get_tcl_source_file(Tcl_Interp *);
 
 static int (*tcl_get_frame) (Tcl_Interp *interp, const char *str, TclGdbCallFrame **framePtrPtr) = NULL;
 
+
+/*
+ * Simplified version of itoa that only works with radix 10.
+ */
+char* my_itoa_10 (unsigned long long  value,  char str[])
+{
+	char        buf [66];
+	char*       dest = buf + sizeof(buf);
+
+	*--dest = '\0';
+
+	/* radix 10 only */
+	while (value) {
+		*--dest = '0' + (value % 10);
+		value /= 10;
+	}
+
+	memcpy (str, dest, buf + sizeof(buf) - dest);
+	return str;
+}
+
+
 /*
  * Callback in C for Tcl's cmdtrace.
  *
@@ -50,7 +72,14 @@ void tclgdb_cmdstep(ClientData clientData,
 	char *s = get_tcl_source_file(interp);
 	s = (s == NULL ? "unknown" : s);
 	strncpy(cmdbuffer, command, sizeof(cmdbuffer) - 1);
-	snprintf(buffer, sizeof(buffer) - 1, "%d: @@ %s @@ %s", level, s, cmdbuffer);
+
+	/* Format the buffer that we intend to log */
+	my_itoa_10(level, buffer);
+	strlcat(buffer, ": @@ ", sizeof(buffer));
+	strlcat(buffer, s, sizeof(buffer));
+	strlcat(buffer, " @@ ", sizeof(buffer));
+	strlcat(buffer, cmdbuffer, sizeof(buffer));
+
 	/* write to a bad FD, but we can see it in truss or strace */
 	write(-1, buffer, strlen(buffer));
 	errno = save_errno;
