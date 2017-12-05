@@ -75,10 +75,10 @@ void tclgdb_cmdstep(ClientData clientData,
 
 	/* Format the buffer that we intend to log */
 	my_itoa_10(level, buffer);
-	strlcat(buffer, ": @@ ", sizeof(buffer));
-	strlcat(buffer, s, sizeof(buffer));
-	strlcat(buffer, " @@ ", sizeof(buffer));
-	strlcat(buffer, cmdbuffer, sizeof(buffer));
+	strncat(buffer, ": @@ ", sizeof(buffer) - 1);
+	strncat(buffer, s, sizeof(buffer) - 1);
+	strncat(buffer, " @@ ", sizeof(buffer) - 1);
+	strncat(buffer, cmdbuffer, sizeof(buffer) - 1);
 
 	/* write to a bad FD, but we can see it in truss or strace */
 	write(-1, buffer, strlen(buffer));
@@ -124,7 +124,48 @@ static int tclgdbObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl
 
 	return TCL_OK;
 }
+
+static int tclwrap0(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap1(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap2(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap3(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap4(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap5(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap6(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap7(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap8(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
+static int tclwrap9(Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[]) { return Tcl_EvalObjv(interp, objc, objvp, 0); }
 
+/**
+ * Wrap command
+ *
+ * Wrap TCL in a C call that profilers can trace easily to make timings.
+ *
+ * ::tclgdb::wrap myproc a b c 2
+ *
+ * This will make myproc have timings in tclwrap2 in a C/C++ profiler.
+ */
+static int tclgdbWrapCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST objvp[])
+{
+    int v;
+    if (Tcl_GetIntFromObj(interp, objvp[objc - 1], &v)) {
+	return TCL_ERROR;
+    }
+    Tcl_Obj *CONST *o = &objvp[1];
+    switch (v % 10) {
+	case 0: return tclwrap0(interp, objc - 2, o);
+	case 1: return tclwrap1(interp, objc - 2, o);
+	case 2: return tclwrap2(interp, objc - 2, o);
+	case 3: return tclwrap3(interp, objc - 2, o);
+	case 4: return tclwrap4(interp, objc - 2, o);
+	case 5: return tclwrap5(interp, objc - 2, o);
+	case 6: return tclwrap6(interp, objc - 2, o);
+	case 7: return tclwrap7(interp, objc - 2, o);
+	case 8: return tclwrap8(interp, objc - 2, o);
+	case 9: return tclwrap9(interp, objc - 2, o);
+   }
+   return TCL_ERROR;
+}
 
 /*
  *----------------------------------------------------------------------
@@ -171,9 +212,11 @@ Tclgdb_Init(Tcl_Interp *interp)
 	data->object_magic = GDBTOOLS_OBJECT_MAGIC;
 	data->has_trace = 0;
 
-	/* Create the create command  */
+	/* Create the commands */
 	Tcl_CreateObjCommand(interp, "::tclgdb::tclgdb", (Tcl_ObjCmdProc *) tclgdbObjCmd, 
 			(ClientData)data, (Tcl_CmdDeleteProc *)tclgdb_CmdDeleteProc);
+	Tcl_CreateObjCommand(interp, "::tclgdb::wrap", (Tcl_ObjCmdProc *) tclgdbWrapCmd,
+			NULL, NULL);
 
 	Tcl_Export (interp, namespace, "*", 0);
 
