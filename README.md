@@ -4,43 +4,37 @@ tclgdb - helpers for using gdb and tcl together for debugging
 tclgdb is a Tcl cmdtrace handler in C.  This allows one to set a breakpoint on
 tclgdb_cmdstep and step the Tcl interpreter while in gdb.
 
-Building
---------
-In order to see the cmdline variable in tclgdb_cmdstep you should set CFLAGS when
-configuring with autoconf. 
-```
-CFLAGS="-g" ./configure --with-tcl=/usr/local/lib/tcl8.6
-```
+[How to install](INSTALL.md)
 
-Building with access to TCL internals
--------------------------------------
-If you have the source build of TCL you can get more information by hacking into the TCL
-internals.
-THIS MIGHT CRASH YOUR PROGRAM.
+Using with truss or strace
+----------------
+Add the command trace to your TCL program and start it. This will have the overhead of the Tclx cmdtrace. Your program will be slower.
+```
+package require tclgdb
+::tclgdb::tclgdb
+```
+Inside your TCL process the trace is writing to file descriptor -1.  That is an intensional error.  But we can get the trace data out of the running
+process with ```truss``` on BSD or ```strace``` on Linux.
 
-```
-# if you git pull the TCL source
-CFLAGS="-DHAVE_TCLINT_H -I$HOME/git/tcl/generic -I$HOME/git/tcl/unix" ./configure && make clean && make && sudo make install
-```
+You only need the ```write(-1,``` trace from the truss.  An example looks like this:
 
 ```
-# if you build TCL from FreeBSD ports
-CFLAGS="-DHAVE_TCLINT_H -I/usr/ports/lang/tcl86/work/tcl8.6.7/generic -I/usr/ports/lang/tcl86/work/tcl8.6.7/unix" ./configure && make clean && make && sudo make install
+0.000078469 write(-1,"15: @@ proc=my_scan,pLn=0,path=unknown @@ incr count",67) ERR#9 'Bad file descriptor'
+0.000199850 write(-1,"15: @@ proc=my_scan,pLn=0,path=unknown @@ compile_user $trigger(user_id)",111) ERR#9 'Bad file descriptor'
+0.000271614 write(-1,"16: @@ proc=compile_user,pLn=0,path=unknown @@ if {[info exists ::cache($userID)]} {\n\t\treturn $::cache($userID)\n\t}",152) ERR#9 'Bad file descriptor'
 ```
 
-Installing
-----------
-Installation is a typical TEA autoconf style.
+For truss you should add "-d" for timestamps. Also add "-s <N>" to expand the reported arguments. Note that truss writes on stderr not stdout.
 ```
-mkdir -p config
-autoreconf -vi
-CFLAGS="-g" ./configure
-make 
-sudo make install
+truss -d -s 500 -p <pid> 2>truss.out
 ```
+You can control-C the truss when you think that you have collected enough data.
 
-Usage
------
+Once you have generated the truss output, then you can convert that file into a viewable heatmap or interactive viewer.
+See [viewing with traceevent](traceevent/README.md).  Or you can simply use the output from truss.
+
+gdb debugger Usage
+------------------
 ```
 package require tclgdb
 
