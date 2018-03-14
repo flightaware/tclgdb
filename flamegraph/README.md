@@ -1,3 +1,6 @@
+*The recommended way to look at trace data from a truss is using Chrome Tracing tool*
+Look in ../traceevent directory.
+
 Visualize the data as a flamegraph
 ==================================
 
