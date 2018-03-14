@@ -5,6 +5,7 @@ JSON data.
 
 https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/edit#
 https://github.com/catapult-project/catapult/blob/master/tracing/docs/getting-started.md
+Inspired by this blog post https://aras-p.info/blog/2017/01/23/Chrome-Tracing-as-Profiler-Frontend/
 
 The TCL script traceevent.tcl converts the truss output from "tclgdb" to Trace Event formatted JSON.
 
