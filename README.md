@@ -13,7 +13,7 @@ Add the command trace to your TCL program and start it. This will have the overh
 package require tclgdb
 ::tclgdb::tclgdb
 ```
-Inside your TCL process the trace is writing to file descriptor -1.  That is an intensional error.  But we can get the trace data out of the running
+Inside your TCL process the trace is writing to file descriptor -1.  That is an intentional error.  But we can get the trace data out of the running
 process with ```truss``` on BSD or ```strace``` on Linux.
 
 You only need the ```write(-1,``` trace from the truss.  An example looks like this:
